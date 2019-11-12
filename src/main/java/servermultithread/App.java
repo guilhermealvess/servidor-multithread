@@ -1,7 +1,13 @@
 package servermultithread;
 
+/* 
+* Trabalho #1 Redes de Computadores
+* Guilherme Alves da Silva - 11511ECP020
+*/
+
 import java.net.*;
 import java.net.ServerSocket;
+import java.util.StringTokenizer;
 import java.io.*;
 
 public final class App {
@@ -38,10 +44,7 @@ public final class App {
 }
 
 final class HttpRequest implements Runnable {
-    /*
-     * final static String CRLF = “\r\n”; Socket socket;
-     */
-    String CRLF = "";
+    final static String CRLF = "\r\n";
     protected Socket clientSocket = null;
 
     // Construtor
@@ -62,16 +65,80 @@ final class HttpRequest implements Runnable {
     }
 
     private void processRequest() throws Exception {
-        InputStream input = clientSocket.getInputStream();
-        OutputStream output = clientSocket.getOutputStream();
         long time = System.currentTimeMillis();
-        output.write(("HTTP/1.1 200 OK\n\nRequest: " + time + "").getBytes());
-        output.close();
+        InputStream is = clientSocket.getInputStream();
+        OutputStream os = clientSocket.getOutputStream();
+        InputStreamReader isr = new InputStreamReader(is);
+        BufferedReader br = new BufferedReader(isr, 2);
+        String requestLine = br.readLine();
+        System.out.println(requestLine);
+
+        String headerLine = null;
+        while ((headerLine = br.readLine()).length() != 0) {
+            System.out.println(headerLine);
+        }
+
+        os.write(("HTTP/1.1 200 OK\n\nRequest: " + time + "").getBytes());
+        // System.out.println("Request processed: " + time);
+
+        StringTokenizer tokens = new StringTokenizer(requestLine);
+        tokens.nextToken();
+        String filename = tokens.nextToken();
+        filename = "." + filename;
+        System.out.println(filename);
+
+        FileInputStream fis = null;
+        Boolean fileExists = true;
+        try {
+            fis = new FileInputStream(filename);
+        } catch (FileNotFoundException e) {
+            fileExists = false;
+        }
+
+        String statusLine = null;
+        String contentTypeLine = null;
+        String entityBody = null;
+        statusLine = "";
+        contentTypeLine = "Content-type: " + contentType(filename) + CRLF;
+        statusLine = "";
+        contentTypeLine = "";
+        entityBody = "<HTML><HEAD><TITLE>Not Found</TITLE></HEAD><BODY>Not Found</BODY></HTML>";
+
+        os.write((statusLine).getBytes());
+        os.write((contentTypeLine).getBytes());
+        os.write(CRLF.getBytes());
+        if (fileExists) {
+            sendBytes(fis, os);
+            fis.close();
+        } else {
+            os.write((entityBody).getBytes());
+        }
+        os.close();
+        br.close();
         // System.out.println(input.read());
-        input.close();
-        System.out.println("Request processed: " + time);
+        is.close();
         clientSocket.close();
-        System.out.println("OI");
+    }
+
+    private static String contentType(String filename) {
+        if (filename.endsWith(".htm") || filename.endsWith(".html")) {
+            return "text/html";
+        }
+        if (filename.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (filename.endsWith(".jpeg") || filename.endsWith(".jpg")) {
+            return "image/jpeg";
+        }
+        return "application/octet-stream";
+    }
+
+    private static void sendBytes(FileInputStream fis, OutputStream os) throws Exception {
+        byte[] buffer = new byte[1024];
+        int bytes = 0;
+        while ((bytes = fis.read(buffer)) != -1) {
+            os.write(buffer, 0, bytes);
+        }
 
     }
 }
